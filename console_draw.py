@@ -1,3 +1,5 @@
+from itertools import repeat, starmap
+
 from PIL import Image
 import numpy as np
 from colorama import Back, Fore, init
@@ -5,38 +7,22 @@ from colorama import Back, Fore, init
 from alphabet import ALPHABET, SPACE
 
 init()
+CONSOLE_COLORS = {
+        0: (Back.BLACK, Fore.BLACK),
+        1: (Back.RED, Fore.RED),
+        2: (Back.YELLOW, Fore.YELLOW),
+        3: (Back.GREEN, Fore.GREEN),
+        4: (Back.WHITE, Fore.WHITE),
+        5: (Back.LIGHTGREEN_EX, Fore.LIGHTGREEN_EX),
+        6: (Back.LIGHTYELLOW_EX, Fore.LIGHTYELLOW_EX),
+        7: (Back.LIGHTYELLOW_EX, Fore.YELLOW),
+        'n': (Back.RESET, Fore.RESET)
+        }
 
 
-def draw(back, fore, symbol):
-    print(back + fore + symbol, end='')
-    return
-
-
-def draw_pixel(color, symbol):
-    color_draw = dict()
-    color_draw[0] = lambda s: draw(Back.BLACK, Fore.BLACK, s)
-    color_draw[1] = lambda s: draw(Back.RED, Fore.RED, s)
-    color_draw[2] = lambda s: draw(Back.YELLOW, Fore.YELLOW, s)
-    color_draw[3] = lambda s: draw(Back.GREEN, Fore.GREEN, s)
-    color_draw[4] = lambda s: draw(Back.WHITE, Fore.WHITE, s)
-    color_draw[5] = lambda s: draw(Back.LIGHTGREEN_EX, Fore.LIGHTGREEN_EX, s)
-    color_draw[6] = lambda s: draw(Back.LIGHTYELLOW_EX, Fore.LIGHTYELLOW_EX, s)
-    color_draw[7] = lambda s: draw(Back.LIGHTYELLOW_EX, Fore.YELLOW, s)
-#    color_draw[0] = lambda s: draw(Back.BLACK, Fore.BLACK, s)
-#    color_draw[1] = lambda s: draw(Back.RED, Fore.RED, s)
-#    color_draw[2] = lambda s: draw(Back.YELLOW, Fore.LIGHTYELLOW_EX, s)
-#    color_draw[3] = lambda s: draw(Back.GREEN, Fore.GREEN, s)
-#    color_draw[4] = lambda s: draw(Back.WHITE, Fore.WHITE, s)
-#    color_draw[5] = lambda s: draw(Back.LIGHTGREEN_EX, Fore.LIGHTGREEN_EX, s)
-#    color_draw[6] = lambda s: draw(Back.YELLOW, Fore.YELLOW, s)
-#    color_draw[7] = lambda s: draw(Back.LIGHTYELLOW_EX, Fore.BLACK, s)
-    color_draw[color](symbol)
-    return
-
-
-def newline():
-    draw(Back.RESET, Fore.RESET, '\n')
-    return
+def pixel_mapper(color, fill):
+    back, fore = CONSOLE_COLORS[color]
+    return back + fore + fill
 
 
 def join(l, sep):
@@ -46,17 +32,34 @@ def join(l, sep):
         newl.append(sep)
     return newl
 
+def newline():
+    return pixel_mapper('n', '\n')
 
-def draw_string(s, font_color=4, back_color=0, fill_symbol='.'):
-    s = s.lower()
-    s = map(lambda x: ALPHABET[x], s)
-    s = join(s, SPACE)
-    s = np.concatenate(s, axis=1)
-    for row in s:
-        for sym in row:
-            color = font_color if sym else back_color
-            draw_pixel(color, fill_symbol)
-        newline()
+
+def string2matrix(string, font_color, back_color, interligne):
+    string = string.lower()
+    matrixes = map(lambda x: ALPHABET[x], string)
+    matrix = join(matrixes, SPACE)
+    matrix = np.concatenate(matrix, axis=1)
+    _, w = matrix.shape
+    line_space = np.zeros((interligne, w))
+    matrix = np.concatenate([line_space, matrix, line_space], axis=0)
+    colorize = lambda x: font_color if x else back_color
+    mapper = lambda x: np.array(list(map(colorize, x)))
+    matrix = np.apply_along_axis(mapper, axis=0, arr=matrix)
+    return matrix
+
+
+def matrix2printable(matrix, fill_symbol):
+    for row in matrix:
+        row = starmap(pixel_mapper, zip(row, repeat(fill_symbol)))
+        row = ''.join(row)
+        yield row
+
+
+def draw_string(string, font_color=4, back_color=0, fill_symbol='.', interligne=1):
+    matrix = string2matrix(string, font_color, back_color, interligne)
+    print(*list(matrix2printable(matrix, fill_symbol)), sep=newline())
     return
 
 
@@ -67,21 +70,22 @@ def quantizetopalette(silf, palette):
     return silf._new(im)
 
 
-def draw_image(file_name, fill_sym='.'):
+def open_image(file_name):
     palimage  = Image.new('P', (16, 16))
     palettedata = [ 0, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 255, 255,85,255,85, 255,85,85, 255,255,85]
-#    palettedata = [ 0, 0, 0, 85,255,255, 255,85,85, 255,255,255]
     palimage.putpalette(palettedata * 32)
+    return np.array(quantizetopalette(Image.open(file_name), palimage))
 
-    printimage = quantizetopalette(Image.open(file_name), palimage)
-    width, height = printimage.size
-    printpixel = printimage.load()
-    init()
-    for j in range(height):
-        for i in range(width):
-            color = printpixel[i, j]
-            draw_pixel(color, fill_sym)
-        newline()
-    return printimage
+
+def draw_image(file_name, fill_sym='.'):
+    matrix = open_image(file_name)
+    print(*list(matrix2printable(matrix, '.')), sep=newline())
+    return
     
+
+
+
+
+
+
 
