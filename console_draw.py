@@ -79,7 +79,7 @@ def open_image(file_name):
 
 def draw_image(file_name, fill_sym='.'):
     matrix = open_image(file_name)
-    print(*list(matrix2printable(matrix, '.')), sep=newline())
+    print(*list(matrix2printable(matrix, fill_sym)), sep=newline())
     return
     
 
